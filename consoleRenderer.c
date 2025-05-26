@@ -8,74 +8,99 @@ int init_Surface(struct Surface *surface_ptr, struct Rect rect) {
     return 1;
   }
 
-  //dynamicly alocate to the heap
-  surface_ptr->buffer = malloc(rect.size.y * sizeof(char**));
+  // dynamicly alocate to the heap
+  surface_ptr->buffer = malloc(rect.size.y * sizeof(char **));
 
-  for (int y = 0; y < rect.size.y; y++){
-    surface_ptr->buffer[y] = malloc(rect.size.x * sizeof(char*));
-    for (int x = 0; x < rect.size.x; x++){
-      surface_ptr->buffer[y][x] = malloc(28 * sizeof(char));
+  for (int y = 0; y < rect.size.y; y++) {
+    surface_ptr->buffer[y] = malloc(rect.size.x * sizeof(char *));
+    for (int x = 0; x < rect.size.x; x++) {
+      surface_ptr->buffer[y][x] = malloc(info_depth * sizeof(char));
+    }
+  }
+  // dynamicly alocate to the heap
+  surface_ptr->alpha_buffer = malloc(rect.size.y * sizeof(char **));
+
+  for (int y = 0; y < rect.size.y; y++) {
+    surface_ptr->alpha_buffer[y] = malloc(rect.size.x * sizeof(char *));
+    for (int x = 0; x < rect.size.x; x++) {
+      surface_ptr->alpha_buffer[y][x] = malloc(x_scale *sizeof(char));
     }
   }
 
-  struct Color color = {0, 0, 0};
+  surface_ptr->alpha_values[0] = "aa";
+  surface_ptr->alpha_values[1] = "▓▓";
+  surface_ptr->alpha_values[2] = "▒▒";
+  surface_ptr->alpha_values[3] = "░░";
+  surface_ptr->alpha_values[4] = "  ";
+
+  struct Color color = {0, 0, 0, 0};
 
   fill_Surface(surface_ptr, color);
 
   return 0;
 }
-void destroy_Surface(struct Surface *surface_ptr){
-  for (int y = 0; y < surface_ptr->height; y++){
-    for (int x = 0; x < surface_ptr->width; x++){
+void destroy_Surface(struct Surface *surface_ptr) {
+  for (int y = 0; y < surface_ptr->height; y++) {
+    for (int x = 0; x < surface_ptr->width; x++) {
       free(surface_ptr->buffer[y][x]);
     }
     free(surface_ptr->buffer[y]);
   }
   free(surface_ptr->buffer);
+  for (int y = 0; y < surface_ptr->height; y++) {
+    for (int x = 0; x < surface_ptr->width; x++) {
+      free(surface_ptr->alpha_buffer[y][x]);
+    }
+    free(surface_ptr->alpha_buffer[y]);
+  }
+  free(surface_ptr->alpha_buffer);
 }
-int blit_Surface(struct Surface *src_Surface, struct Surface *dest_Surface, struct Rect rect){
-  if (!src_Surface || !dest_Surface){
+int blit_Surface(struct Surface *src_Surface, struct Surface *dest_Surface,
+                 struct Rect rect) {
+  if (!src_Surface || !dest_Surface) {
     fprintf(stderr, "Invalid Surface pointer");
     return 1;
   }
-  if (src_Surface->width > dest_Surface->width || src_Surface->height > dest_Surface->height){
+  if (src_Surface->width > dest_Surface->width ||
+      src_Surface->height > dest_Surface->height) {
     fprintf(stderr, "Invalid surface width");
     return 1;
   }
-  
+
   int sizex = rect.size.x;
-  int sizey = rect.size.y; 
+  int sizey = rect.size.y;
   int posx = rect.pos.x;
   int posy = rect.pos.y;
 
-  //cliping to avoid buffer overflow
-  if (posx + sizex > dest_Surface->width){
+  // cliping to avoid buffer overflow
+  if (posx + sizex > dest_Surface->width) {
     sizex = dest_Surface->width - posx;
   }
-  if (posy + sizey > dest_Surface->height){
+  if (posy + sizey > dest_Surface->height) {
     sizey = dest_Surface->height - posy;
   }
-  if (posy< 0){
+  if (posy < 0) {
     posy = 0;
     sizey = rect.size.y + rect.pos.y;
   }
-  if (posx< 0){
+  if (posx < 0) {
     posx = 0;
     sizex = rect.size.x + rect.pos.x;
   }
 
-  for (int i = 0; i < sizey; i++){
-    for (int j = 0; j < sizex; j++){
-      strncpy(dest_Surface->buffer[i+posy][j+posx], src_Surface->buffer[i][j], 28);
+  for (int i = 0; i < sizey; i++) {
+    for (int j = 0; j < sizex; j++) {
+      strncpy(dest_Surface->buffer[i + posy][j + posx], src_Surface->buffer[i][j], info_depth);
+      strcpy(dest_Surface->alpha_buffer[i + posy][j + posx], src_Surface->alpha_buffer[i][j]);
     }
   }
   return 0;
 }
 void rgb_to_ansi(int r, int g, int b, int foreground, char *buffer) {
   if (foreground) {
-    snprintf(buffer, 28, "\033[38;2;%d;%d;%dm", r, g, b);
+    snprintf(buffer, 29, "\033[38;2;%d;%d;%dm", r, g, b);
   } else {
-    snprintf(buffer, 28, "\033[48;2;%d;%d;%dm", r, g, b);
+    snprintf(buffer, 29, "\033[48;2;%d;%d;%dm", r, g, b);
   }
 }
 
@@ -86,7 +111,6 @@ void create_triangle_gradient(struct Surface *surface, struct Color c1,
   if (!surface || surface->width <= 0 || surface->height <= 0)
     return;
 
-  char ansi_code[28];
   for (int y = 0; y < surface->height; y++) {
     for (int x = 0; x < surface->width; x++) {
       // Calculate barycentric coordinates
@@ -103,22 +127,16 @@ void create_triangle_gradient(struct Surface *surface, struct Color c1,
         unsigned char g = c1.g * w1 + c2.g * w2 + c3.g * w3;
         unsigned char b = c1.b * w1 + c2.b * w2 + c3.b * w3;
 
-        rgb_to_ansi(r, g, b, 1, ansi_code);
-      } else {
-        // Outside triangle - black
-        rgb_to_ansi(0, 0, 0, 1, ansi_code);
+        draw_pixel(surface, (struct Vector){x, y}, (struct Color){r, g, b, 0});
       }
-      strncpy(surface->buffer[y][x], ansi_code, 28);
     }
   }
 }
-
 void create_diagonal_gradient(struct Surface *surface, struct Color start,
                               struct Color end) {
   if (!surface || surface->width <= 0 || surface->height <= 0)
     return;
 
-  char ansi_code[28];
   float max_dist = surface->width + surface->height - 2;
 
   for (int y = 0; y < surface->height; y++) {
@@ -128,8 +146,7 @@ void create_diagonal_gradient(struct Surface *surface, struct Color start,
       unsigned char g = start.g + (end.g - start.g) * ratio;
       unsigned char b = start.b + (end.b - start.b) * ratio;
 
-      rgb_to_ansi(r, g, b, 1, ansi_code);
-      strncpy(surface->buffer[y][x], ansi_code, 28);
+      draw_pixel(surface, (struct Vector){x, y}, (struct Color){r, g, b, 0});
     }
   }
 }
@@ -141,7 +158,6 @@ void fill_gradient_Surface(struct Surface *surface, struct Color color1,
     return;
 
   // Temporary buffer for ANSI code
-  char ansi_code[28];
 
   for (int x = 0; x < surface->width; x++) {
     // Calculate interpolation ratio (0.0 at left to 1.0 at right)
@@ -152,12 +168,20 @@ void fill_gradient_Surface(struct Surface *surface, struct Color color1,
     unsigned char g = color1.g + (color2.g - color1.g) * ratio;
     unsigned char b = color1.b + (color2.b - color1.b) * ratio;
 
-    // Generate ANSI color code for this column
-    rgb_to_ansi(r, g, b, 1, ansi_code); // 1 for foreground color
-
     // Store this color in every row of the current column
     for (int y = 0; y < surface->height; y++) {
-      strncpy(surface->buffer[y][x], ansi_code, 28);
+      draw_pixel(surface, (struct Vector){x, y}, (struct Color){r, g, b, 0});
+    }
+  }
+}
+
+void create_alpha_gradient(struct Surface *surface, struct Color color){
+  if (!surface || surface->width <= 0 || surface->height <= 0) return;
+  
+  for (int x = 0; x < surface->width; x++){
+    float ratio = (float)x / (surface->width - 1) * MAX_ALPHA;
+    for (int y = 0; y < surface->height; y++) {
+      draw_pixel(surface, (struct Vector){x, y}, (struct Color){color.r, color.g, color.b, ratio});
     }
   }
 }
@@ -166,7 +190,6 @@ void create_rainbow_spectrum(struct Surface *surface) {
   if (!surface || surface->width <= 0 || surface->height <= 0)
     return;
 
-  char ansi_code[28];
   for (int x = 0; x < surface->width; x++) {
     float hue = (float)x / surface->width * 6.0f; // 0-6 range for full spectrum
     struct Color c;
@@ -197,15 +220,14 @@ void create_rainbow_spectrum(struct Surface *surface) {
       c.g = 0;
       c.b = 255 * (6 - hue);
     }
-
-    rgb_to_ansi(c.r, c.g, c.b, 1, ansi_code);
+    c.a = 0;
     for (int y = 0; y < surface->height; y++) {
-      strncpy(surface->buffer[y][x], ansi_code, 28);
+      draw_pixel(surface, (struct Vector){x, y}, c);
     }
   }
 }
 
-void cleanup(void){
+void cleanup(void) {
   system("clear");
   printf("\033[?25h");
 }
@@ -216,7 +238,7 @@ void cleanup(void){
   printf("\n%s", Surface->height);
   printf("Max width and height: \n%s", MAX_WIDTH);
   printf("\n%s", MAX_HEIGHT);
-  char output[(MAX_WIDTH * (28 + 2) + 1) * MAX_HEIGHT];
+  char output[(MAX_WIDTH * (info_depth + 2) + 1) * MAX_HEIGHT];
   char *ptr = output;
   for (int i = 0; i < Surface->height; i++) {
     for (int j = 0; j < Surface->width; j++) {
@@ -230,15 +252,25 @@ void cleanup(void){
   fflush(stdout);
 }*/
 
+void draw_pixel(struct Surface *Surface, struct Vector pos, struct Color color) {
+  char ansi_code[info_depth];
+  rgb_to_ansi(color.r, color.g, color.b, 1, ansi_code);
+  strcpy(Surface->buffer[pos.x][pos.y], ansi_code);
+  if (color.a > MAX_ALPHA){
+    fprintf(stderr, "Invalid alpha value for color");
+    strcpy(Surface->alpha_buffer[pos.x][pos.y], "##");
+    return;
+  }  
+  strcpy(Surface->alpha_buffer[pos.x][pos.y], Surface->alpha_values[color.a]);
+}
 void update_Screen(struct Surface *Surface) {
   printf("\033[H");
   printf("\033[?25l\033[H");
-  char output[(MAX_WIDTH * (28 + 2) + 1) *
-                     MAX_HEIGHT];
+  char output[(Surface->width * (info_depth + 2) + 1) * Surface->height];
   char *ptr = output;
   for (int i = 0; i < Surface->height; i++) {
     for (int j = 0; j < Surface->width; j++) {
-      ptr += sprintf(ptr, "%s%s", Surface->buffer[i][j], ASCII_VALUE);
+      ptr += sprintf(ptr, "%s%s", Surface->buffer[i][j], Surface->alpha_buffer[i][j]);
     }
     ptr += sprintf(ptr, "\n");
   }
@@ -247,12 +279,23 @@ void update_Screen(struct Surface *Surface) {
   fflush(stdout);
 }
 
+int draw_rect(struct Surface *Surface, struct Rect rect, struct Color color){
+  struct Surface rect_surf;
+  if (init_Surface(&rect_surf, rect)) {
+    return 1;
+  }
+
+  fill_Surface(&rect_surf, color);
+
+  blit_Surface(&rect_surf, Surface, rect);
+
+  destroy_Surface(&rect_surf);
+}
+
 void fill_Surface(struct Surface *Surface, struct Color color) {
   for (int i = 0; i < Surface->height; i++) {
     for (int j = 0; j < Surface->width; j++) {
-      char value[28];
-      rgb_to_ansi(color.r, color.g, color.b, 1, value);
-      strcpy(Surface->buffer[i][j], value);
+      draw_pixel(Surface, (struct Vector){i, j}, color);
     }
   }
 }

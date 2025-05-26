@@ -7,10 +7,9 @@
 #include <string.h>
 #include <unistd.h>
 
-#define MAX_WIDTH 350
-#define MAX_HEIGHT 250
-
-#define ASCII_VALUE "██"
+#define MAX_ALPHA 4
+#define info_depth 28
+#define x_scale 2
 //#define ASCII_VALUE "aa"
 
 struct Vector {
@@ -21,6 +20,8 @@ struct Vector {
 struct Surface {
   short width;
   short height;
+  char *alpha_values[5];
+  char ***alpha_buffer;
   char ***buffer;
 };
 
@@ -33,13 +34,16 @@ struct Color {
   short r;
   short g;
   short b;
+  short a;
 };
 
+void draw_pixel(struct Surface *Surface, struct Vector pos, struct Color color);
 void destroy_Surface(struct Surface *surface_ptr);
 int init_Surface(struct Surface *surface_ptr, struct Rect rect);
 void rgb_to_ansi(int r, int g, int b, int foreground, char *buffer);
 void update_Screen(struct Surface *Surface);
 void fill_Surface(struct Surface *Surface, struct Color color);
+void create_alpha_gradient(struct Surface *surface, struct Color color);
 void fill_gradient_Surface(struct Surface *Surface, struct Color color1,
                            struct Color color2);
 void create_rainbow_spectrum(struct Surface *surface);
@@ -50,6 +54,7 @@ void create_triangle_gradient(struct Surface *surface, struct Color c1,
                               struct Vector p2, struct Color c3,
                               struct Vector p3);
 int blit_Surface(struct Surface *src_Surface, struct Surface *dest_Surface, struct Rect rect);
+int draw_rect(struct Surface *Surface, struct Rect rect, struct Color color);
 void cleanup(void);
 
 #endif
