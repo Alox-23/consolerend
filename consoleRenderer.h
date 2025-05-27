@@ -46,6 +46,7 @@ void fill_Surface(struct Surface *Surface, struct Color color);
 void create_alpha_gradient(struct Surface *surface, struct Color color);
 void fill_gradient_Surface(struct Surface *Surface, struct Color color1,
                            struct Color color2);
+void set_alpha(struct Surface *Surface, int a);
 void create_rainbow_spectrum(struct Surface *surface);
 void create_diagonal_gradient(struct Surface *surface, struct Color start,
                               struct Color end);

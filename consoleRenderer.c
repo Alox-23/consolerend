@@ -27,7 +27,7 @@ int init_Surface(struct Surface *surface_ptr, struct Rect rect) {
     }
   }
 
-  surface_ptr->alpha_values[0] = "aa";
+  surface_ptr->alpha_values[0] = "██";
   surface_ptr->alpha_values[1] = "▓▓";
   surface_ptr->alpha_values[2] = "▒▒";
   surface_ptr->alpha_values[3] = "░░";
@@ -39,6 +39,15 @@ int init_Surface(struct Surface *surface_ptr, struct Rect rect) {
 
   return 0;
 }
+
+void set_alpha(struct Surface *Surface, int a){
+  for (int i = 0; i < Surface->height; i++) {
+    for (int j = 0; j < Surface->width; j++) {
+      strcpy(Surface->alpha_buffer[i][j], Surface->alpha_values[a]);
+    }
+  }
+}
+
 void destroy_Surface(struct Surface *surface_ptr) {
   for (int y = 0; y < surface_ptr->height; y++) {
     for (int x = 0; x < surface_ptr->width; x++) {
